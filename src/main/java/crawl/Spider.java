@@ -3,30 +3,19 @@ package crawl;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
-import com.sun.istack.internal.NotNull;
-import dao.CompareDao;
 import dao.impl.CompareDaoImpl;
-import domain.Compare;
 import domain.WeiXinData;
-import org.apache.commons.beanutils.BeanUtils;
-import org.springframework.transaction.annotation.Transactional;
-import utils.FileUtil;
-import utils.NetUtil;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.transaction.annotation.Transactional;
+import utils.NetUtil;
 
-import java.io.*;
-import java.util.ArrayList;
+import java.io.UnsupportedEncodingException;
 import java.util.Iterator;
-import java.util.List;
-import java.util.regex.Pattern;
-import java.util.zip.GZIPInputStream;
-import java.util.zip.Inflater;
-import java.util.zip.InflaterInputStream;
 
 /**
  * Created by yaofly on 2017/3/7.
@@ -83,7 +72,7 @@ public class Spider {
     void preyDetil(WeiXinData d) {
         SpiderGlobal.getInstance().article++;
         logger.info("prey article count:" + SpiderGlobal.getInstance().article + ", spiderThread count:" + SpiderGlobal.getInstance().spiderQueueSize() +
-                ", searchThread count:" + SpiderGlobal.getInstance().searchQueueSize());
+                ", searchThread count:" + SpiderGlobal.getInstance().searchQueueSize()+",downloadThread count:"+SpiderGlobal.getInstance().downloadQueueSize());
         String content = "";
         try {
             byte[] b = NetUtil.get(d.getUrl().replace("\\/", "/"));
@@ -97,7 +86,7 @@ public class Spider {
         Document doc = Jsoup.parse(content, "utf-8");
         Elements elements = doc.getElementsByTag("img");
         Element element = doc.getElementById("post-user");
-        String tag = element == null ? "" : element.text();
+        String tag = element == null ? "other" : element.text();
         String jpg = "http://mmbiz.qpic.cn/mmbiz_jpg/";
         String png = "http://mmbiz.qpic.cn/mmbiz_png/";
         // 列表缩略图

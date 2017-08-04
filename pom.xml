@@ -127,7 +127,7 @@
                         <manifest>
                             <addClasspath>true</addClasspath>
                             <classpathPrefix>lib/</classpathPrefix>
-                            <mainClass>crawl/Spider</mainClass>
+                            <mainClass>crawl/SpiderServer</mainClass>
                         </manifest>
                         <!--<manifestEntries>-->
                             <!--<Class-Path>lib/lire-1.0b4.jar</Class-Path>-->

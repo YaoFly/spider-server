@@ -2,6 +2,7 @@ package crawl;
 
 import com.alibaba.fastjson.JSON;
 import domain.WeiXinData;
+import domain.WxImage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -26,6 +27,7 @@ public class SpiderGlobal {
 
     private SpiderThread[] spiderThreads;
     private SearchThread[] searchThreads;
+    private DownloadThread[] downloadThreads;
     private Logger logger = LoggerFactory.getLogger(SpiderGlobal.class);
     Integer article = 0;
 
@@ -35,6 +37,7 @@ public class SpiderGlobal {
         emf = Persistence.createEntityManagerFactory("SimplePU");
         initSpiderThread();
         initSearchThread();
+        initDownloadThread();
         Runtime.getRuntime().addShutdownHook(new Thread(this::gracefullyShutdown));
     }
 
@@ -53,6 +56,14 @@ public class SpiderGlobal {
         }
     }
 
+    private void initDownloadThread(){
+        downloadThreads = new DownloadThread[Define.DOWNLOAD_THREAD_NUMS];
+        for(int i=0;i<downloadThreads.length;i++){
+            downloadThreads[i] = new DownloadThread();
+            downloadThreads[i].start();
+        }
+    }
+
     private void gracefullyShutdown(){
         logger.info("Stop Spider thread...");
         //直接终止
@@ -63,6 +74,11 @@ public class SpiderGlobal {
         //直接终止
         for(SearchThread searchThread:searchThreads){
             searchThread.interrupt();
+        }
+        logger.info("Stop Download thread...");
+        //直接终止
+        for(DownloadThread downloadThread:downloadThreads){
+            downloadThread.interrupt();
         }
         logger.info("Gracefully shutdown.");
         emf.close();
@@ -95,6 +111,15 @@ public class SpiderGlobal {
         }
     }
 
+    public void downloadQueuePut(WxImage data){
+        try {
+            downloadThreads[loadBalancing(downloadThreads)].put(data);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+            logger.error("InterruptedException download:"+ JSON.toJSONString(data));
+        }
+    }
+
     public String spiderQueueSize(){
         int[] attr = new int[spiderThreads.length];
         for(int i=0;i<spiderThreads.length;i++){
@@ -111,11 +136,27 @@ public class SpiderGlobal {
         return JSON.toJSONString(attr);
     }
 
+    public String downloadQueueSize(){
+        int[] attr = new int[downloadThreads.length];
+        for(int i=0;i<downloadThreads.length;i++){
+            attr[i]=downloadThreads[i].queueSize();
+        }
+        return JSON.toJSONString(attr);
+    }
+
     public EntityManagerFactory getEmf() {
         return emf;
     }
 
     public void setEmf(EntityManagerFactory emf) {
         this.emf = emf;
+    }
+
+    public synchronized Integer getArticle() {
+        return article;
+    }
+
+    public void setArticle(Integer article) {
+        this.article = article;
     }
 }

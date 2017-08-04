@@ -29,7 +29,7 @@ public class FileUtil {
         return list;
     }
 
-    public synchronized static void outPutFile(String content, String path,boolean append) {
+    public synchronized static void outPutFile(byte[] content, String path,boolean append) {
         FileOutputStream opt = null;
         try {
             File file = new File(path);
@@ -37,7 +37,7 @@ public class FileUtil {
                 file.createNewFile();
             }
             opt = new FileOutputStream(file,append);
-            opt.write(content.getBytes());
+            opt.write(content);
             opt.flush();
         } catch (IOException e) {
             e.printStackTrace();
