@@ -11,6 +11,8 @@ public class Compare {
     @GeneratedValue
     private Long id;
     private String targetFile;
+    @Column(unique = true)
+    private String targetImgUrl;
     private String score;
     private String sourceFile;
     private String sourceUrl;
@@ -89,5 +91,13 @@ public class Compare {
 
     public void setDatetime(Long datetime) {
         this.datetime = datetime;
+    }
+
+    public String getTargetImgUrl() {
+        return targetImgUrl;
+    }
+
+    public void setTargetImgUrl(String targetImgUrl) {
+        this.targetImgUrl = targetImgUrl;
     }
 }

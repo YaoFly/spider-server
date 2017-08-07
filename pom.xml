@@ -100,8 +100,18 @@
             <artifactId>hibernate-c3p0</artifactId>
             <version>5.2.10.Final</version>
         </dependency>
-
-
+        <!--&lt;!&ndash; https://mvnrepository.com/artifact/org.springframework/spring-context &ndash;&gt;-->
+        <!--<dependency>-->
+            <!--<groupId>org.springframework</groupId>-->
+            <!--<artifactId>spring-context</artifactId>-->
+            <!--<version>4.3.9.RELEASE</version>-->
+        <!--</dependency>-->
+        <!--&lt;!&ndash; https://mvnrepository.com/artifact/org.springframework/spring-core &ndash;&gt;-->
+        <!--<dependency>-->
+            <!--<groupId>org.springframework</groupId>-->
+            <!--<artifactId>spring-core</artifactId>-->
+            <!--<version>4.3.9.RELEASE</version>-->
+        <!--</dependency>-->
 
     </dependencies>
 

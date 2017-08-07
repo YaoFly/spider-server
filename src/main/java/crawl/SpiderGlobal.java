@@ -1,15 +1,13 @@
 package crawl;
 
-import com.alibaba.fastjson.JSON;
-import domain.WeiXinData;
-import domain.WxImage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.persistence.EntityManager;
 import javax.persistence.EntityManagerFactory;
 import javax.persistence.Persistence;
-import java.util.*;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Created by ooopic on 2017/4/14.
@@ -25,138 +23,36 @@ public class SpiderGlobal {
         return instance;
     }
 
-    private SpiderThread[] spiderThreads;
-    private SearchThread[] searchThreads;
-    private DownloadThread[] downloadThreads;
+    ThreadPoolExecutor spiderThreads = new ThreadPoolExecutor(1,5,1, TimeUnit.HOURS, new LinkedBlockingQueue<>());
+    ThreadPoolExecutor searchThreads = new ThreadPoolExecutor(10,20,1, TimeUnit.HOURS, new LinkedBlockingQueue<>());
+    ThreadPoolExecutor downloadThreads = new ThreadPoolExecutor(1,5,1, TimeUnit.HOURS, new LinkedBlockingQueue<>());
     private Logger logger = LoggerFactory.getLogger(SpiderGlobal.class);
-    Integer article = 0;
+    private Integer article = 0;
 
     private EntityManagerFactory emf;
 
     void init(){
         emf = Persistence.createEntityManagerFactory("SimplePU");
-        initSpiderThread();
-        initSearchThread();
-        initDownloadThread();
         Runtime.getRuntime().addShutdownHook(new Thread(this::gracefullyShutdown));
-    }
-
-    private void initSearchThread(){
-        searchThreads = new SearchThread[Define.SEARCH_THREAD_NUMS];
-        for(int i=0;i<searchThreads.length;i++){
-            searchThreads[i] = new SearchThread();
-            searchThreads[i].start();
-        }
-    }
-    private void initSpiderThread(){
-        spiderThreads = new SpiderThread[Define.SPIDER_THREAD_NUMS];
-        for(int i=0;i<spiderThreads.length;i++){
-            spiderThreads[i] = new SpiderThread();
-            spiderThreads[i].start();
-        }
-    }
-
-    private void initDownloadThread(){
-        downloadThreads = new DownloadThread[Define.DOWNLOAD_THREAD_NUMS];
-        for(int i=0;i<downloadThreads.length;i++){
-            downloadThreads[i] = new DownloadThread();
-            downloadThreads[i].start();
-        }
     }
 
     private void gracefullyShutdown(){
         logger.info("Stop Spider thread...");
         //直接终止
-        for(SpiderThread spiderThread:spiderThreads){
-            spiderThread.interrupt();
-        }
+        spiderThreads.shutdown();
         logger.info("Stop Search thread...");
         //直接终止
-        for(SearchThread searchThread:searchThreads){
-            searchThread.interrupt();
-        }
+        searchThreads.shutdown();
         logger.info("Stop Download thread...");
         //直接终止
-        for(DownloadThread downloadThread:downloadThreads){
-            downloadThread.interrupt();
-        }
-        logger.info("Gracefully shutdown.");
+        downloadThreads.shutdown();
         emf.close();
-    }
-
-    private int loadBalancing(BaseQueue[] bq){
-        Map<Integer, Integer> map = new TreeMap<Integer, Integer>();
-        for(int i =0;i<bq.length;i++){
-            map.put(bq[i].queueSize(),i);
-        }
-        Iterator<Map.Entry<Integer, Integer>> entries = map.entrySet().iterator();
-        return entries.next().getValue();
-    }
-
-    public void spiderQueuePut(WeiXinData data){
-        try {
-            spiderThreads[loadBalancing(spiderThreads)].put(data);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-            logger.error("InterruptedException spide:"+ JSON.toJSONString(data));
-        }
-    }
-
-    public void searchQueuePut(WeiXinData data){
-        try {
-            searchThreads[loadBalancing(searchThreads)].put(data);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-            logger.error("InterruptedException search:"+ JSON.toJSONString(data));
-        }
-    }
-
-    public void downloadQueuePut(WxImage data){
-        try {
-            downloadThreads[loadBalancing(downloadThreads)].put(data);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-            logger.error("InterruptedException download:"+ JSON.toJSONString(data));
-        }
-    }
-
-    public String spiderQueueSize(){
-        int[] attr = new int[spiderThreads.length];
-        for(int i=0;i<spiderThreads.length;i++){
-            attr[i]=spiderThreads[i].queueSize();
-        }
-        return JSON.toJSONString(attr);
-    }
-
-    public String searchQueueSize(){
-        int[] attr = new int[searchThreads.length];
-        for(int i=0;i<searchThreads.length;i++){
-            attr[i]=searchThreads[i].queueSize();
-        }
-        return JSON.toJSONString(attr);
-    }
-
-    public String downloadQueueSize(){
-        int[] attr = new int[downloadThreads.length];
-        for(int i=0;i<downloadThreads.length;i++){
-            attr[i]=downloadThreads[i].queueSize();
-        }
-        return JSON.toJSONString(attr);
+        logger.info("Gracefully shutdown.");
     }
 
     public EntityManagerFactory getEmf() {
         return emf;
     }
-
-    public void setEmf(EntityManagerFactory emf) {
-        this.emf = emf;
-    }
-
-    public synchronized Integer getArticle() {
-        return article;
-    }
-
-    public void setArticle(Integer article) {
-        this.article = article;
-    }
+    synchronized Integer getArticle() {return article;}
+    synchronized void articleInc(){article++;}
 }

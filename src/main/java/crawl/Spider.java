@@ -4,7 +4,9 @@ import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import dao.impl.CompareDaoImpl;
+import domain.Compare;
 import domain.WeiXinData;
+import domain.WxImage;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
@@ -12,10 +14,15 @@ import org.jsoup.select.Elements;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.transaction.annotation.Transactional;
+import utils.FileUtil;
 import utils.NetUtil;
 
+import javax.persistence.EntityManager;
+import java.io.IOException;
 import java.io.UnsupportedEncodingException;
-import java.util.Iterator;
+import java.security.NoSuchAlgorithmException;
+import java.util.List;
+import java.util.UUID;
 
 /**
  * Created by yaofly on 2017/3/7.
@@ -33,7 +40,7 @@ public class Spider {
         prey(str, url);
     }
 
-    void prey(String json, String url) {
+    private void prey(String json, String url) {
         JSONObject object = JSON.parseObject(json);
         JSONArray array = object.getJSONArray("list");
         String content_url = null;
@@ -52,10 +59,10 @@ public class Spider {
             if (comm_msg_info != null) {
                 datetime = Long.valueOf(comm_msg_info.getString("datetime") + "000");
             }
-            if (content_url != null&&!content_url.equals("")){
+            if (content_url != null && content_url.trim().length()!=0&&imgurl!=null&&imgurl.trim().length()!=0) {
                 WeiXinData data = new WeiXinData();
-                data.setUrl(content_url);
-                data.setImgUrl(imgurl);
+                data.setUrl(content_url.replace("\\/", "/"));
+                data.setImgUrl(imgurl.replace("\\/", "/"));
                 data.setDatetime(datetime);
                 try {
                     data.setTitle(new String(title.getBytes(), "utf-8"));
@@ -63,16 +70,18 @@ public class Spider {
                     e.printStackTrace();
                     logger.error("translate error:" + JSON.toJSONString(data));
                 }
-                SpiderGlobal.getInstance().spiderQueuePut(data);
+                SpiderGlobal.getInstance().spiderThreads.execute(() -> preyDetil(data));
             }
         }
     }
 
     @Transactional
-    void preyDetil(WeiXinData d) {
-        SpiderGlobal.getInstance().article++;
-        logger.info("prey article count:" + SpiderGlobal.getInstance().article + ", spiderThread count:" + SpiderGlobal.getInstance().spiderQueueSize() +
-                ", searchThread count:" + SpiderGlobal.getInstance().searchQueueSize()+",downloadThread count:"+SpiderGlobal.getInstance().downloadQueueSize());
+    private void preyDetil(WeiXinData d) {
+        SpiderGlobal.getInstance().articleInc();
+        logger.info("prey article count:" + SpiderGlobal.getInstance().getArticle() +
+                ", spiderQueue count:" + SpiderGlobal.getInstance().spiderThreads.getQueue().size() +
+                ", searchQueue count:" + SpiderGlobal.getInstance().searchThreads.getQueue().size() +
+                ",downloadQueue count:" + SpiderGlobal.getInstance().downloadThreads.getQueue().size());
         String content = "";
         try {
             byte[] b = NetUtil.get(d.getUrl().replace("\\/", "/"));
@@ -91,14 +100,54 @@ public class Spider {
         String png = "http://mmbiz.qpic.cn/mmbiz_png/";
         // 列表缩略图
         d.setTag(tag);
-        SpiderGlobal.getInstance().searchQueuePut(d);
-        for (Iterator iterator = elements.iterator(); iterator.hasNext(); ) {
-            Element e = (Element) iterator.next();
+        SpiderGlobal.getInstance().searchThreads.execute(() -> searchAndSave(d));
+        for (Element e : elements) {
             String imgUrl = e.attr("data-src");
             if (imgUrl != null && !"".equals(imgUrl) && (imgUrl.contains(jpg) || imgUrl.contains(png))) {
-                WeiXinData data = new WeiXinData(d.getUrl(), imgUrl, d.getTitle(), tag, d.getDatetime());
-                SpiderGlobal.getInstance().searchQueuePut(data);
+                if (checkRepeat(imgUrl.replace("\\/", "/"))) {
+                    continue;
+                }
+                WeiXinData data = new WeiXinData(d.getUrl(), imgUrl.replace("\\/", "/"), d.getTitle(), tag, d.getDatetime());
+                SpiderGlobal.getInstance().searchThreads.execute(() -> searchAndSave(data));
             }
         }
+    }
+
+    private void searchAndSave(WeiXinData data) {
+        try {
+            WxImage wxImage = saveToLocal(data.getImgUrl());
+            String result = Search.search(wxImage.getBytes());
+            if (!result.equals("") && !result.equals("{}")) {
+                JSONObject o = JSON.parseObject(result).getJSONArray("results").getJSONObject(0);
+//                        JSONObject oo = JSON.parseObject(result).getJSONArray("results").getJSONObject(1);
+                Compare c = new Compare();
+                c.setTargetFile(wxImage.getName());
+                c.setSourceFile(o.getString("id"));
+                c.setTargetUrl(data.getUrl().replace("\\/", "/"));
+                c.setSourceUrl("http://699pic.com/tupian-" + o.getString("id").replace("699pic.", "") + ".html");
+                c.setTag(data.getTag());
+                c.setSourceTitle(data.getTitle());
+                c.setScore(o.getString("score"));
+                c.setDatetime(data.getDatetime());
+                c.setTargetImgUrl(data.getImgUrl());
+                compareDao.save(c);
+            }
+        } catch (Exception e) {
+            logger.error(JSON.toJSONString(data));
+            e.printStackTrace();
+        }
+    }
+
+    private WxImage saveToLocal(String imgUrl) throws IOException, NoSuchAlgorithmException {
+        byte[] imgByte = NetUtil.get(imgUrl);
+        String filename = UUID.randomUUID().toString();
+        WxImage wxImage = new WxImage(filename, imgByte);
+        SpiderGlobal.getInstance().downloadThreads.execute(() -> FileUtil.outPutFile(wxImage.getBytes(), Define.DIR + wxImage.getName(), false));
+        return wxImage;
+    }
+
+    private boolean checkRepeat(String imgUrl) {
+        List t = compareDao.findByTargetImgUrl(imgUrl);
+        return t != null && t.size() != 0;
     }
 }
