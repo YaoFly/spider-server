@@ -3,16 +3,16 @@ package domain;
 /**
  * Created by ooopic on 2017/4/14.
  */
-public class WeiXinData implements Cloneable{
+public class WxData{
     private String url;
     private String imgUrl;
     private String title;
     private String tag;
     private Long datetime;
 
-    public WeiXinData() {}
+    public WxData() {}
 
-    public WeiXinData(String url, String imgUrl, String title, String tag, Long datetime) {
+    public WxData(String url, String imgUrl, String title, String tag, Long datetime) {
         this.url = url;
         this.imgUrl = imgUrl;
         this.title = title;
@@ -60,8 +60,4 @@ public class WeiXinData implements Cloneable{
         this.datetime = datetime;
     }
 
-    @Override
-    protected Object clone() throws CloneNotSupportedException {
-        return (WeiXinData)super.clone();
-    }
 }

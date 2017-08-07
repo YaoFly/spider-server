@@ -5,7 +5,7 @@ import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import dao.impl.CompareDaoImpl;
 import domain.Compare;
-import domain.WeiXinData;
+import domain.WxData;
 import domain.WxImage;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -60,7 +60,7 @@ public class Spider {
                 datetime = Long.valueOf(comm_msg_info.getString("datetime") + "000");
             }
             if (content_url != null && content_url.trim().length()!=0&&imgurl!=null&&imgurl.trim().length()!=0) {
-                WeiXinData data = new WeiXinData();
+                WxData data = new WxData();
                 data.setUrl(content_url.replace("\\/", "/"));
                 data.setImgUrl(imgurl.replace("\\/", "/"));
                 data.setDatetime(datetime);
@@ -76,7 +76,7 @@ public class Spider {
     }
 
     @Transactional
-    private void preyDetil(WeiXinData d) {
+    private void preyDetil(WxData d) {
         SpiderGlobal.getInstance().articleInc();
         logger.info("prey article count:" + SpiderGlobal.getInstance().getArticle() +
                 ", spiderQueue count:" + SpiderGlobal.getInstance().spiderThreads.getQueue().size() +
@@ -107,13 +107,13 @@ public class Spider {
                 if (checkRepeat(imgUrl.replace("\\/", "/"))) {
                     continue;
                 }
-                WeiXinData data = new WeiXinData(d.getUrl(), imgUrl.replace("\\/", "/"), d.getTitle(), tag, d.getDatetime());
+                WxData data = new WxData(d.getUrl(), imgUrl.replace("\\/", "/"), d.getTitle(), tag, d.getDatetime());
                 SpiderGlobal.getInstance().searchThreads.execute(() -> searchAndSave(data));
             }
         }
     }
 
-    private void searchAndSave(WeiXinData data) {
+    private void searchAndSave(WxData data) {
         try {
             WxImage wxImage = saveToLocal(data.getImgUrl());
             String result = Search.search(wxImage.getBytes());
